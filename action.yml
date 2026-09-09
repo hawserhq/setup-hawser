@@ -1,0 +1,75 @@
+name: 'Setup Hawser'
+description: >-
+  Install a pinned Hawser (upstream Docker Engine on Windows via WSL2) on a
+  Windows runner, verified against the release's SHA256SUMS, and wait for the
+  engine to answer. One line replaces Docker Desktop on the runner.
+author: 'zcsizmadia'
+branding:
+  icon: 'anchor'
+  color: 'blue'
+
+inputs:
+  version:
+    description: 'Hawser release to install (e.g. 0.3.0). "latest" resolves the newest release.'
+    required: false
+    default: 'latest'
+  lockfile:
+    description: 'Path to a hawser.lock that pins the engine (install --locked). Empty auto-detects ./hawser.lock.'
+    required: false
+    default: ''
+  install:
+    description: >-
+      Run `hawser install` and start the engine (needs WSL2 on the runner --
+      a self-hosted Windows runner; GitHub-hosted ones cannot run WSL2).
+      "false" only stages hawser.exe on PATH.
+    required: false
+    default: 'true'
+  install-args:
+    description: 'Extra arguments appended to `hawser install` (e.g. --engine-version 29.7.2).'
+    required: false
+    default: ''
+  wait:
+    description: 'How long to wait for the engine to answer (Go duration, e.g. 3m).'
+    required: false
+    default: '3m'
+  token:
+    description: 'GitHub token for the release API (avoids anonymous rate limits when resolving "latest").'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: 'The Hawser version that was installed.'
+    value: ${{ steps.run.outputs.version }}
+  home:
+    description: 'Directory holding hawser.exe (also added to PATH and exported as HAWSER_HOME).'
+    value: ${{ steps.run.outputs.home }}
+  docker-context:
+    description: 'The docker context that targets the engine after install (also exported as DOCKER_CONTEXT).'
+    value: 'hawser'
+
+runs:
+  using: 'composite'
+  steps:
+    # One script does the work so GitLab and other CI systems run the exact same
+    # logic (scripts/install-hawser.ps1); the action only maps inputs onto it.
+    # Inputs reach the script through env, never spliced into the command line.
+    - id: run
+      shell: pwsh
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_LOCKFILE: ${{ inputs.lockfile }}
+        INPUT_INSTALL: ${{ inputs.install }}
+        INPUT_INSTALL_ARGS: ${{ inputs.install-args }}
+        INPUT_WAIT: ${{ inputs.wait }}
+        GH_TOKEN: ${{ inputs.token }}
+      run: |
+        $install = $env:INPUT_INSTALL -ne 'false'
+        & "$env:GITHUB_ACTION_PATH/scripts/install-hawser.ps1" `
+          -Version $env:INPUT_VERSION `
+          -Lockfile $env:INPUT_LOCKFILE `
+          -Install $install `
+          -InstallArgs $env:INPUT_INSTALL_ARGS `
+          -Wait $env:INPUT_WAIT `
+          -Token $env:GH_TOKEN
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
