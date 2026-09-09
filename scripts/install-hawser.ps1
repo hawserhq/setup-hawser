@@ -117,14 +117,16 @@ if ($LASTEXITCODE -ne 0) {
 
 # --- 5. install the engine (feature-detecting what this release supports) ----
 $installHelp = (& $hawser install --help 2>&1 | Out-String)
-$args = @('install', '--headless', '--no-autostart')
+# Not $args: that is an automatic variable, and assigning to it inside a script
+# that also splats it is asking for a subtle argument-passing bug.
+$installArgs = @('install', '--headless', '--no-autostart')
 if (-not $Lockfile -and (Test-Path 'hawser.lock')) { $Lockfile = 'hawser.lock' }
 if ($Lockfile) {
-  if ($installHelp -match '--locked') { $args += @('--locked', $Lockfile) }
+  if ($installHelp -match '--locked') { $installArgs += @('--locked', $Lockfile) }
   else { Write-Warning "hawser $Version does not support --locked; ignoring $Lockfile" }
 }
-if ($InstallArgs) { $args += ($InstallArgs -split ' ' | Where-Object { $_ }) }
-& $hawser @args
+if ($InstallArgs) { $installArgs += ($InstallArgs -split ' ' | Where-Object { $_ }) }
+& $hawser @installArgs
 if ($LASTEXITCODE -ne 0) { throw "hawser install failed (exit $LASTEXITCODE)" }
 & $hawser start
 if ($LASTEXITCODE -ne 0) { throw "hawser start failed (exit $LASTEXITCODE)" }

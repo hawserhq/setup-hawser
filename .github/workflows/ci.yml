@@ -80,6 +80,6 @@ jobs:
       - uses: actions/checkout@v4
       - shell: pwsh
         run: |
-          $findings = Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error
+          $findings = Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error, Warning -ExcludeRule PSAvoidUsingWriteHost
           $findings | Format-Table -AutoSize | Out-String | Write-Host
           if ($findings) { throw "$($findings.Count) PSScriptAnalyzer error(s)" }
