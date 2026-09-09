@@ -53,7 +53,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: install: true must fail with the WSL2 message, not something opaque
+      - name: "install=true must fail with the WSL2 message, not something opaque"
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
