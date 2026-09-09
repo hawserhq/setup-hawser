@@ -117,16 +117,18 @@ if ($LASTEXITCODE -ne 0) {
 
 # --- 5. install the engine (feature-detecting what this release supports) ----
 $installHelp = (& $hawser install --help 2>&1 | Out-String)
-# Not $args: that is an automatic variable, and assigning to it inside a script
-# that also splats it is asking for a subtle argument-passing bug.
-$installArgs = @('install', '--headless', '--no-autostart')
+# Not $args (an automatic variable this script also splats), and not
+# $installArgs either: PowerShell variable names are case-insensitive, so that
+# one IS the -InstallArgs parameter, and assigning to it fed the arguments back
+# into themselves.
+$cmdArgs = @('install', '--headless', '--no-autostart')
 if (-not $Lockfile -and (Test-Path 'hawser.lock')) { $Lockfile = 'hawser.lock' }
 if ($Lockfile) {
-  if ($installHelp -match '--locked') { $installArgs += @('--locked', $Lockfile) }
+  if ($installHelp -match '--locked') { $cmdArgs += @('--locked', $Lockfile) }
   else { Write-Warning "hawser $Version does not support --locked; ignoring $Lockfile" }
 }
-if ($InstallArgs) { $installArgs += ($InstallArgs -split ' ' | Where-Object { $_ }) }
-& $hawser @installArgs
+if ($InstallArgs) { $cmdArgs += ($InstallArgs -split ' ' | Where-Object { $_ }) }
+& $hawser @cmdArgs
 if ($LASTEXITCODE -ne 0) { throw "hawser install failed (exit $LASTEXITCODE)" }
 & $hawser start
 if ($LASTEXITCODE -ne 0) { throw "hawser start failed (exit $LASTEXITCODE)" }
