@@ -34,6 +34,11 @@ param(
   [string]$Token = $env:GH_TOKEN
 )
 $ErrorActionPreference = 'Stop'
+# pwsh 7.4+ turns a native command's non-zero exit into a terminating error under
+# ErrorActionPreference=Stop. This script inspects exit codes itself (`hawser
+# version` legitimately exits 3 with no engine; `wsl --status` fails where WSL2
+# is absent), so keep native exit codes as data, not exceptions.
+$PSNativeCommandUseErrorActionPreference = $false
 $repo = 'zcsizmadia/hawser'
 
 # Out-CI appends a line to a GitHub Actions command file when running there;
@@ -45,10 +50,20 @@ function Out-CI([string]$file, [string]$line) {
 # --- 1. resolve the release --------------------------------------------------
 $Version = $Version -replace '^v', ''
 if (-not $Version -or $Version -eq 'latest') {
+  # The hawser repo also publishes rootfs releases (tags rootfs-*), and
+  # GitHub's /releases/latest can return one of those. "Latest" here means the
+  # newest published app release: a v<semver> tag that is not a draft. Every
+  # pre-1.0 release is flagged prerelease, so a stable one is preferred when it
+  # exists but a prerelease is not excluded.
   $headers = @{ 'User-Agent' = 'setup-hawser' }
   if ($Token) { $headers['Authorization'] = "Bearer $Token" }
-  $rel = Invoke-RestMethod -Headers $headers "https://api.github.com/repos/$repo/releases/latest"
-  $Version = $rel.tag_name -replace '^v', ''
+  $rels = Invoke-RestMethod -Headers $headers "https://api.github.com/repos/$repo/releases?per_page=50"
+  $apps = @($rels | Where-Object { $_.tag_name -match '^v\d+\.\d+\.\d+$' -and -not $_.draft } |
+    Sort-Object { [version]($_.tag_name -replace '^v', '') } -Descending)
+  $app = @($apps | Where-Object { -not $_.prerelease })[0]
+  if (-not $app) { $app = $apps[0] }
+  if (-not $app) { throw "no published hawser release found in $repo" }
+  $Version = $app.tag_name -replace '^v', ''
 }
 Write-Host "hawser $Version"
 
