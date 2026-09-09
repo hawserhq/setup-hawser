@@ -14,9 +14,9 @@
   Feature detection keeps it working with older releases: `--locked` and
   `hawser healthcheck` are used only when the installed hawser supports them.
 
-  WSL2 is required to install the engine. GitHub-hosted Windows runners cannot
-  run WSL2 (no nested virtualization); on those, run with -Install:$false to
-  stage hawser.exe only, or use a self-hosted Windows runner.
+  WSL2 is required to install the engine (GitHub-hosted windows-latest runners
+  have it). On a machine without WSL2, run with -Install:$false to stage
+  hawser.exe only.
 
 .EXAMPLE
   pwsh -File install-hawser.ps1 -Version 0.3.0
@@ -110,9 +110,9 @@ if (-not $Install) {
 # --- 4. WSL2 gate ------------------------------------------------------------
 & wsl.exe --status *> $null
 if ($LASTEXITCODE -ne 0) {
-  throw ("WSL2 is not available on this machine. GitHub-hosted Windows runners cannot run WSL2 " +
-    "(no nested virtualization): use a self-hosted Windows runner with WSL2, or run with " +
-    "-Install:`$false (action input install: false) to stage hawser.exe only.")
+  throw ("WSL2 is not available on this machine (`wsl --status` failed). Enable WSL2 on the runner " +
+    "(wsl --install --no-distribution, then reboot), or run with -Install:`$false " +
+    "(action input install: false) to stage hawser.exe only.")
 }
 
 # --- 5. install the engine (feature-detecting what this release supports) ----

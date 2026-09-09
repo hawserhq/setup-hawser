@@ -19,9 +19,9 @@ inputs:
     default: ''
   install:
     description: >-
-      Run `hawser install` and start the engine (needs WSL2 on the runner --
-      a self-hosted Windows runner; GitHub-hosted ones cannot run WSL2).
-      "false" only stages hawser.exe on PATH.
+      Run `hawser install` and start the engine (needs WSL2 on the runner;
+      GitHub-hosted windows-latest has it). "false" only stages hawser.exe
+      on PATH.
     required: false
     default: 'true'
   install-args:

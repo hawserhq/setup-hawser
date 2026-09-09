@@ -1,9 +1,9 @@
 name: ci
 
-# GitHub-hosted Windows runners cannot run WSL2, so CI exercises everything up
-# to the engine install: resolve, download, verify against SHA256SUMS, extract,
-# PATH, and `hawser version`. The full install path is exercised on self-hosted
-# runners by the projects that use the action; its script is the same file.
+# GitHub-hosted windows-latest runners have WSL2, so CI exercises the whole
+# path: resolve, download, verify against SHA256SUMS, extract, PATH, install the
+# engine, wait for it, and run a container through it. The stage-only path
+# (install: false) and the GitLab-style script call are covered too.
 
 on:
   push:
@@ -14,8 +14,29 @@ permissions:
   contents: read
 
 jobs:
+  install-via-action:
+    name: action installs the engine and docker runs (windows-latest)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: hawser
+        uses: ./
+      - name: docker targets the Hawser engine
+        shell: pwsh
+        run: |
+          if ($env:DOCKER_CONTEXT -ne 'hawser') { throw "DOCKER_CONTEXT is '$env:DOCKER_CONTEXT', expected 'hawser'" }
+          if ("${{ steps.hawser.outputs.docker-context }}" -ne 'hawser') { throw "docker-context output is not 'hawser'" }
+          docker version
+          if ($LASTEXITCODE -ne 0) { throw "docker version failed ($LASTEXITCODE)" }
+          $name = docker info --format '{{.Name}}'
+          Write-Host "engine host: $name"
+          docker run --rm hello-world
+          if ($LASTEXITCODE -ne 0) { throw "docker run hello-world failed ($LASTEXITCODE)" }
+          hawser status --json | Out-Host
+          exit 0
+
   stage-via-action:
-    name: action stages hawser.exe (windows-latest)
+    name: install=false only stages hawser.exe
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +55,8 @@ jobs:
           if (-not "${{ steps.hawser.outputs.version }}") { throw "action reported no version output" }
           if ($env:HAWSER_HOME -ne "${{ steps.hawser.outputs.home }}") { throw "HAWSER_HOME and the home output disagree" }
           Write-Host "staged hawser ${{ steps.hawser.outputs.version }} at ${{ steps.hawser.outputs.home }}"
+          # The step's exit code is the last native command's; don't leak the 3.
+          exit 0
 
   stage-via-script:
     name: script stages hawser.exe (GitLab-style)
@@ -46,23 +69,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           pwsh -File scripts/install-hawser.ps1 -Install:$false -Dest "$env:RUNNER_TEMP\hawser-script"
+          if ($LASTEXITCODE -ne 0) { throw "script exited $LASTEXITCODE" }
           if (-not (Test-Path "$env:RUNNER_TEMP\hawser-script\bin\hawser.exe")) { throw "hawser.exe not staged" }
-
-  wsl2-gate:
-    name: the WSL2 gate fails clearly on a hosted runner
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: "install=true must fail with the WSL2 message, not something opaque"
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $out = pwsh -File scripts/install-hawser.ps1 -Install:$true -Dest "$env:RUNNER_TEMP\hawser-gate" 2>&1 | Out-String
-          $code = $LASTEXITCODE
-          Write-Host $out
-          if ($code -eq 0) { throw "expected the install to be refused on a hosted runner" }
-          if ($out -notmatch 'WSL2 is not available') { throw "refused, but without the WSL2 explanation" }
+          exit 0
 
   lint:
     name: PSScriptAnalyzer

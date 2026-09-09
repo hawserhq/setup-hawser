@@ -27,14 +27,14 @@ auto-detected in the working directory, or pointed at with `lockfile:`.
 
 ## The one thing to know: WSL2
 
-Installing the engine needs WSL2. **GitHub-hosted Windows runners cannot run
-WSL2** (their VMs have no nested virtualization), so the full install works on a
-**self-hosted Windows runner** with WSL2 — the normal setup for a Windows build
-fleet. On a GitHub-hosted runner the action detects this and fails with that
+Installing the engine needs WSL2. **GitHub-hosted `windows-latest` runners have
+it** — this repo's own CI installs the engine and runs `docker run hello-world`
+on one — and so does any self-hosted Windows runner with WSL2 enabled. On a
+machine without WSL2 the action fails with a clear "WSL2 is not available"
 message; use `install: false` there to stage `hawser.exe` on PATH only (useful
 for `hawser bundle`, `hawser lock`, packaging steps).
 
-Runners also need a logged-on session for WSL2 — see
+Self-hosted runners also need a logged-on session for WSL2 — see
 [auto-logon-runner.md](https://github.com/zcsizmadia/hawser/blob/main/docs/auto-logon-runner.md);
 `hawser runner check` verifies that setup.
 
