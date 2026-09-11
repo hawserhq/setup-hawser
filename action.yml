@@ -25,7 +25,7 @@ inputs:
     required: false
     default: 'true'
   install-args:
-    description: 'Extra arguments appended to `hawser install` (e.g. --engine-version 29.7.2).'
+    description: 'Extra arguments appended to `hawser install` (e.g. --engine-version 29.8.0).'
     required: false
     default: ''
   wait:
