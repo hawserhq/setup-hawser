@@ -4,6 +4,14 @@ name: ci
 # path: resolve, download, verify against SHA256SUMS, extract, PATH, install the
 # engine, wait for it, and run a container through it. The stage-only path
 # (install: false) and the GitLab-style script call are covered too.
+#
+# All of that needs a release to install, and the newest one may still predate
+# the Skrog rename (#1) -- every release through v0.3.1 publishes
+# hawser_<version>_windows_<arch>.zip, which this action deliberately no longer
+# knows how to fetch. The probe below decides: the download jobs run once a
+# release carries a skrog-named asset, and are skipped with a reason until then.
+# It is not a temporary hack -- "there is nothing published to install" is a
+# real state for an installer's CI, and this reports it instead of failing.
 
 on:
   push:
@@ -14,8 +22,47 @@ permissions:
   contents: read
 
 jobs:
+  release-ready:
+    name: is there a skrog-named release to install?
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.probe.outputs.ready }}
+    steps:
+      - id: probe
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # set -e matters: an API or auth failure must fail this job, so a broken
+        # probe can never quietly skip the whole suite. gh's own --jq is used
+        # rather than piping to jq, so the same command is runnable anywhere gh
+        # is -- including a maintainer's laptop, which is how this was checked.
+        run: |
+          set -euo pipefail
+          out=$(gh api 'repos/wslkit/skrog/releases?per_page=50' --jq '
+            [ .[] | select(.draft | not)
+                  | select(.tag_name | test("^v[0-9]+[.][0-9]+[.][0-9]+$")) ]
+            | sort_by(.created_at) | reverse | .[0] // empty
+            | "\(.tag_name) \([.assets[].name | select(startswith("skrog_"))] | length)"')
+          if [ -z "$out" ]; then
+            echo "no published app release in wslkit/skrog yet; nothing to install"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag=${out% *}
+          n=${out##* }
+          if [ "$n" -gt 0 ]; then
+            echo "newest release $tag ships $n skrog-named asset(s); running the download jobs"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "newest release $tag predates the rename, so it has no skrog_* asset."
+            echo "Skipping the download jobs until v0.4.0 is published."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
   install-via-action:
     name: action installs the engine and docker runs (windows-latest)
+    needs: release-ready
+    if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +84,8 @@ jobs:
 
   stage-via-action:
     name: install=false only stages skrog.exe
+    needs: release-ready
+    if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +109,8 @@ jobs:
 
   stage-via-script:
     name: script stages skrog.exe (GitLab-style)
+    needs: release-ready
+    if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
