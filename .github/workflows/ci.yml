@@ -4,6 +4,14 @@ name: ci
 # path: resolve, download, verify against SHA256SUMS, extract, PATH, install the
 # engine, wait for it, and run a container through it. The stage-only path
 # (install: false) and the GitLab-style script call are covered too.
+#
+# All of that needs a release to install, and the newest one may still predate
+# the Skrog rename (#1) -- every release through v0.3.1 publishes
+# hawser_<version>_windows_<arch>.zip, which this action deliberately no longer
+# knows how to fetch. The probe below decides: the download jobs run once a
+# release carries a skrog-named asset, and are skipped with a reason until then.
+# It is not a temporary hack -- "there is nothing published to install" is a
+# real state for an installer's CI, and this reports it instead of failing.
 
 on:
   push:
@@ -14,52 +22,95 @@ permissions:
   contents: read
 
 jobs:
+  release-ready:
+    name: is there a skrog-named release to install?
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.probe.outputs.ready }}
+    steps:
+      - id: probe
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # set -e matters: an API or auth failure must fail this job, so a broken
+        # probe can never quietly skip the whole suite. gh's own --jq is used
+        # rather than piping to jq, so the same command is runnable anywhere gh
+        # is -- including a maintainer's laptop, which is how this was checked.
+        run: |
+          set -euo pipefail
+          out=$(gh api 'repos/wslkit/skrog/releases?per_page=50' --jq '
+            [ .[] | select(.draft | not)
+                  | select(.tag_name | test("^v[0-9]+[.][0-9]+[.][0-9]+$")) ]
+            | sort_by(.created_at) | reverse | .[0] // empty
+            | "\(.tag_name) \([.assets[].name | select(startswith("skrog_"))] | length)"')
+          if [ -z "$out" ]; then
+            echo "no published app release in wslkit/skrog yet; nothing to install"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag=${out% *}
+          n=${out##* }
+          if [ "$n" -gt 0 ]; then
+            echo "newest release $tag ships $n skrog-named asset(s); running the download jobs"
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "newest release $tag predates the rename, so it has no skrog_* asset."
+            echo "Skipping the download jobs until v0.4.0 is published."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
   install-via-action:
     name: action installs the engine and docker runs (windows-latest)
+    needs: release-ready
+    if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - id: hawser
+      - id: skrog
         uses: ./
-      - name: docker targets the Hawser engine
+      - name: docker targets the Skrog engine
         shell: pwsh
         run: |
-          if ($env:DOCKER_CONTEXT -ne 'hawser') { throw "DOCKER_CONTEXT is '$env:DOCKER_CONTEXT', expected 'hawser'" }
-          if ("${{ steps.hawser.outputs.docker-context }}" -ne 'hawser') { throw "docker-context output is not 'hawser'" }
+          if ($env:DOCKER_CONTEXT -ne 'skrog') { throw "DOCKER_CONTEXT is '$env:DOCKER_CONTEXT', expected 'skrog'" }
+          if ("${{ steps.skrog.outputs.docker-context }}" -ne 'skrog') { throw "docker-context output is not 'skrog'" }
           docker version
           if ($LASTEXITCODE -ne 0) { throw "docker version failed ($LASTEXITCODE)" }
           $name = docker info --format '{{.Name}}'
           Write-Host "engine host: $name"
           docker run --rm hello-world
           if ($LASTEXITCODE -ne 0) { throw "docker run hello-world failed ($LASTEXITCODE)" }
-          hawser status --json | Out-Host
+          skrog status --json | Out-Host
           exit 0
 
   stage-via-action:
-    name: install=false only stages hawser.exe
+    name: install=false only stages skrog.exe
+    needs: release-ready
+    if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - id: hawser
+      - id: skrog
         uses: ./
         with:
           install: 'false'
-      - name: hawser.exe is on PATH and reports its version
+      - name: skrog.exe is on PATH and reports its version
         shell: pwsh
         run: |
-          $out = & hawser version 2>&1 | Out-String
+          $out = & skrog version 2>&1 | Out-String
           $code = $LASTEXITCODE
           Write-Host $out
           # 3 = no engine installed, which is exactly this runner's state.
-          if ($code -ne 0 -and $code -ne 3) { throw "hawser version exited $code" }
-          if (-not "${{ steps.hawser.outputs.version }}") { throw "action reported no version output" }
-          if ($env:HAWSER_HOME -ne "${{ steps.hawser.outputs.home }}") { throw "HAWSER_HOME and the home output disagree" }
-          Write-Host "staged hawser ${{ steps.hawser.outputs.version }} at ${{ steps.hawser.outputs.home }}"
+          if ($code -ne 0 -and $code -ne 3) { throw "skrog version exited $code" }
+          if (-not "${{ steps.skrog.outputs.version }}") { throw "action reported no version output" }
+          if ($env:SKROG_HOME -ne "${{ steps.skrog.outputs.home }}") { throw "SKROG_HOME and the home output disagree" }
+          Write-Host "staged skrog ${{ steps.skrog.outputs.version }} at ${{ steps.skrog.outputs.home }}"
           # The step's exit code is the last native command's; don't leak the 3.
           exit 0
 
   stage-via-script:
-    name: script stages hawser.exe (GitLab-style)
+    name: script stages skrog.exe (GitLab-style)
+    needs: release-ready
+    if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,9 +119,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          pwsh -File scripts/install-hawser.ps1 -Install:$false -Dest "$env:RUNNER_TEMP\hawser-script"
+          pwsh -File scripts/install-skrog.ps1 -Install:$false -Dest "$env:RUNNER_TEMP\skrog-script"
           if ($LASTEXITCODE -ne 0) { throw "script exited $LASTEXITCODE" }
-          if (-not (Test-Path "$env:RUNNER_TEMP\hawser-script\bin\hawser.exe")) { throw "hawser.exe not staged" }
+          if (-not (Test-Path "$env:RUNNER_TEMP\skrog-script\bin\skrog.exe")) { throw "skrog.exe not staged" }
           exit 0
 
   lint:
