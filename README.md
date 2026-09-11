@@ -1,13 +1,13 @@
 # setup-hawser
 
-Install a pinned [Hawser](https://github.com/zcsizmadia/hawser) — the upstream
+Install a pinned [Hawser](https://github.com/hawserhq/hawser) — the upstream
 open source Docker Engine on Windows via WSL2 — on a Windows runner, verified
 against the release's `SHA256SUMS`, and wait for the engine to answer. One line
 replaces Docker Desktop on the runner: no per-runner license, no auto-updates
 you did not schedule, and the same pinned engine your developers run.
 
 ```yaml
-- uses: zcsizmadia/setup-hawser@v1
+- uses: hawserhq/setup-hawser@v1
   with:
     version: 0.3.0            # or omit: "latest"
 - run: docker run --rm hello-world
@@ -35,7 +35,7 @@ message; use `install: false` there to stage `hawser.exe` on PATH only (useful
 for `hawser bundle`, `hawser lock`, packaging steps).
 
 Self-hosted runners also need a logged-on session for WSL2 — see
-[auto-logon-runner.md](https://github.com/zcsizmadia/hawser/blob/main/docs/auto-logon-runner.md);
+[auto-logon-runner.md](https://github.com/hawserhq/hawser/blob/main/docs/auto-logon-runner.md);
 `hawser runner check` verifies that setup.
 
 ## Inputs
@@ -64,7 +64,7 @@ runs the same logic. In `.gitlab-ci.yml` on a Windows runner:
 
 ```yaml
 before_script:
-  - Invoke-WebRequest https://raw.githubusercontent.com/zcsizmadia/setup-hawser/v1/scripts/install-hawser.ps1 -OutFile install-hawser.ps1
+  - Invoke-WebRequest https://raw.githubusercontent.com/hawserhq/setup-hawser/v1/scripts/install-hawser.ps1 -OutFile install-hawser.ps1
   - pwsh -File install-hawser.ps1 -Version 0.3.0
   - $env:DOCKER_CONTEXT = 'hawser'
 ```
@@ -94,7 +94,7 @@ rootfs by SHA-256, and the lockfile pins it to the commit.
 runner (checksum-pinned), if the runner image has none:
 
 ```yaml
-- uses: zcsizmadia/setup-hawser@v1
+- uses: hawserhq/setup-hawser@v1
 - run: hawser cli install --no-path
 ```
 

@@ -39,7 +39,7 @@ $ErrorActionPreference = 'Stop'
 # version` legitimately exits 3 with no engine; `wsl --status` fails where WSL2
 # is absent), so keep native exit codes as data, not exceptions.
 $PSNativeCommandUseErrorActionPreference = $false
-$repo = 'zcsizmadia/hawser'
+$repo = 'hawserhq/hawser'
 
 # Out-CI appends a line to a GitHub Actions command file when running there;
 # elsewhere (GitLab, a laptop) the variables are simply unset and nothing happens.
