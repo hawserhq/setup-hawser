@@ -3,7 +3,7 @@ description: >-
   Install a pinned Hawser (upstream Docker Engine on Windows via WSL2) on a
   Windows runner, verified against the release's SHA256SUMS, and wait for the
   engine to answer. One line replaces Docker Desktop on the runner.
-author: 'zcsizmadia'
+author: 'hawserhq'
 branding:
   icon: 'anchor'
   color: 'blue'
