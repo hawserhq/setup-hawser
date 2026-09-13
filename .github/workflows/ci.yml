@@ -55,7 +55,7 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "newest release $tag predates the rename, so it has no skrog_* asset."
-            echo "Skipping the download jobs until v0.4.0 is published."
+            echo "Skipping the download jobs until an app release with skrog_* assets exists."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 

@@ -10,7 +10,7 @@ branding:
 
 inputs:
   version:
-    description: 'Skrog release to install (e.g. 0.3.0). "latest" resolves the newest release.'
+    description: 'Skrog release to install (e.g. 0.4.1). "latest" resolves the newest release.'
     required: false
     default: 'latest'
   lockfile:
