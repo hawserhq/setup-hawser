@@ -65,7 +65,7 @@ jobs:
     if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: skrog
         uses: ./
       - name: docker targets the Skrog engine
@@ -88,7 +88,7 @@ jobs:
     if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: skrog
         uses: ./
         with:
@@ -113,7 +113,7 @@ jobs:
     if: needs.release-ready.outputs.ready == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: run the script the way a GitLab before_script would
         shell: pwsh
         env:
@@ -128,7 +128,7 @@ jobs:
     name: PSScriptAnalyzer
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - shell: pwsh
         run: |
           $findings = Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Error, Warning -ExcludeRule PSAvoidUsingWriteHost
