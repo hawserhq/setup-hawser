@@ -1,0 +1,15 @@
+# Dependabot for the CI actions (wslkit/skrog#294).
+#
+# Actions only: this repository is a composite action driving PowerShell, with
+# no package manager and no lockfile. The Skrog version it installs is not a
+# dependency either -- it defaults to "latest" and is resolved from the release
+# API at run time, or pinned by the caller's workflow.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    commit-message:
+      prefix: ci
